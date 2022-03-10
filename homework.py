@@ -15,19 +15,19 @@ load_dotenv()
 
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     filename='program.log',
     format='%(asctime)s, %(levelname)s, %(message)s'
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_TIME = 0
+RETRY_TIME = 600
 
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
@@ -81,9 +81,6 @@ def parse_status(homework: dict):
     if verdict != status:
         status = verdict
         return f'{message} "{homework_name}". {verdict}'
-    else:
-        logger.debug('Отсутствие в ответе новых статусов.')
-        raise AssertionError('Отсутствие в ответе новых статусов.')
 
 
 def check_tokens():
@@ -99,7 +96,6 @@ def check_tokens():
 def main():
     """Основная логика работы бота."""
     bot = Bot(token=TELEGRAM_TOKEN)
-    # current_timestamp = int(time.time())
     while check_tokens():
         try:
             current_timestamp = 1636992730
@@ -113,8 +109,11 @@ def main():
             time.sleep(RETRY_TIME)
         else:
             message = parse_status(homework)
-            send_message(bot, message)
-            logger.info('Сообщение отправлено.')
+            if message != None:
+                send_message(bot, message)
+                logger.info('Сообщение отправлено.')
+            else:
+                logger.debug('Отсутствие в ответе новых статусов.')
 
 
 if __name__ == '__main__':
