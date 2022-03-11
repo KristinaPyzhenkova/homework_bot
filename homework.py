@@ -27,7 +27,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_TIME = 600
+RETRY_TIME = 0
 
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
@@ -63,21 +63,35 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверяет ответ API на корректность."""
-    if isinstance(response, dict):
-        homework = response.get('homeworks')[0]
-        return homework
-    else:
+    if isinstance(response, list) or isinstance(
+        response.get('homeworks'), dict
+    ) or response == {} or response.get('homeworks') is None:
         logger.error('Отсутствие ожидаемых ключей в ответе API.')
         raise TypeError('Отсутствие ожидаемых ключей в ответе API.')
+
+    homeworks = response.get('homeworks')
+    if homeworks is None:
+        raise KeyError('Отсутствует ключ.')
+
+    return homeworks
 
 
 def parse_status(homework: dict):
     """Извлекает из инф. о домашней работе статус."""
     global status
-    homework_name = homework.get('homework_name')
+
     homework_status = homework.get('status')
+    homework_name = homework.get('homework_name')
+
+    if homework_status is None or homework_name is None:
+        raise KeyError('Отсутствует ключ.')
+
     verdict = HOMEWORK_STATUSES.get(homework_status)
+    if verdict is None:
+        raise Exception('Статус неизвестен.')
+
     message = 'Изменился статус проверки работы'
+
     if verdict != status:
         status = verdict
         return f'{message} "{homework_name}". {verdict}'
@@ -108,8 +122,8 @@ def main():
             logger.error('Cбой при отправке сообщения в Telegram.')
             time.sleep(RETRY_TIME)
         else:
-            message = parse_status(homework)
-            if message != None:
+            message = parse_status(homework[0])
+            if message is not None:
                 send_message(bot, message)
                 logger.info('Сообщение отправлено.')
             else:
