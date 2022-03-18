@@ -1,6 +1,5 @@
 import time
 import logging
-import sys
 from http import HTTPStatus
 
 import requests
@@ -22,13 +21,14 @@ def send_message(bot, message):
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.info('Сообщение отправлено.')
     except Exception:
+        logger.critical('Сообщение не отправлено.')
+    except telegram.TelegramError:
         raise telegram.TelegramError(f'Ошибка при отправке: {message}')
 
 
 def get_api_answer(current_timestamp):
     """Делает запрос к единственному эндпоинту API-сервиса."""
-    timestamp = current_timestamp or int(time.time())
-    params = {'from_date': timestamp}
+    params = {'from_date': current_timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
         if response.status_code != HTTPStatus.OK:
@@ -42,12 +42,16 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверяет ответ API на корректность."""
-    if isinstance(response, list) or response == {}:
+    if not isinstance(response, dict) or response == {}:
         logger.error('Отсутствие ожидаемых ключей в ответе API.')
         raise TypeError('Отсутствие ожидаемых ключей в ответе API.')
-    if isinstance(response.get('homeworks'), dict):
+
+    if not isinstance(response.get('homeworks'), list):
         logger.error('Отсутствие ожидаемых ключей в ответе API.')
         raise TypeError('Отсутствие ожидаемых ключей в ответе API.')
+
+    while response.get('homeworks') == []:
+        continue
 
     homeworks = response.get('homeworks')
     if homeworks is None:
@@ -74,18 +78,12 @@ def parse_status(homework: dict):
 
 def check_tokens():
     """Проверяет доступность переменных окружения."""
-    try:
-        if all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]) is True:
-            return True
-    except Exception:
-        logger.critical('Отсутствие обязательных переменных.')
-        sys.exit('Отсутствие обязательных переменных.')
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def main():
     """Основная логика работы бота."""
-    begin_yandex_practicum = 1636992730
-    current_timestamp = begin_yandex_practicum
+    current_timestamp = int(time.time())
     bot = Bot(token=TELEGRAM_TOKEN)
     status = None
     if check_tokens() is True:
@@ -96,6 +94,7 @@ def main():
                 if status != homework[0].get('status'):
                     send_message(bot, parse_status(homework[0]))
                     status = homework[0].get('status')
+                    current_timestamp = response.get('current_date')
                 else:
                     logger.debug('Отсутствие в ответе новых статусов.')
                 time.sleep(RETRY_TIME)
