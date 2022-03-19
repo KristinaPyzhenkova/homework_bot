@@ -50,9 +50,6 @@ def check_response(response):
         logger.error('Отсутствие ожидаемых ключей в ответе API.')
         raise TypeError('Отсутствие ожидаемых ключей в ответе API.')
 
-    while response.get('homeworks') == []:
-        continue
-
     homeworks = response.get('homeworks')
     if homeworks is None:
         raise KeyError('Отсутствует ключ.')
@@ -91,18 +88,20 @@ def main():
             try:
                 response = get_api_answer(current_timestamp)
                 homework = check_response(response)
-                if status != homework[0].get('status'):
+                if response.get('homeworks') == []:
+                    message = 'Домашка пока не проверена'
+                    send_message(bot, message)
+                elif status != homework[0].get('status'):
                     send_message(bot, parse_status(homework[0]))
                     status = homework[0].get('status')
                     current_timestamp = response.get('current_date')
                 else:
                     logger.debug('Отсутствие в ответе новых статусов.')
-                time.sleep(RETRY_TIME)
             except Exception as error:
                 message = f'Сбой в работе программы: {error}'
                 send_message(bot, message)
                 logger.error('Cбой при отправке сообщения в Telegram.')
-                time.sleep(RETRY_TIME)
+            time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
