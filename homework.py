@@ -91,6 +91,7 @@ def main():
                 if response.get('homeworks') == []:
                     message = 'Домашка пока не проверена'
                     send_message(bot, message)
+                    status = message
                 elif status != homework[0].get('status'):
                     send_message(bot, parse_status(homework[0]))
                     status = homework[0].get('status')
@@ -101,7 +102,8 @@ def main():
                 message = f'Сбой в работе программы: {error}'
                 send_message(bot, message)
                 logger.error('Cбой при отправке сообщения в Telegram.')
-            time.sleep(RETRY_TIME)
+            finally:
+                time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
